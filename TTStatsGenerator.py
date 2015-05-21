@@ -6,7 +6,27 @@ Created on 18/05/2015
 import csv
 import os
 import xlsxwriter
-from datetime import datetime, date
+
+class Seccion():
+    
+    def __init__(self):
+        self.name = ''
+        self.status = ''
+        self.timeTravel = ''
+        self.dia = ''
+        self.mes = ''
+        self.anno = ''
+        self.hora = ''
+        self.minuto = ''
+        self.matches = ''
+
+    def __repr__(self):
+        str = "Name: "+self.name
+        str += "\nStatus: "+self.status
+        str += "\nTimeTravel: "+self.timeTravel
+        str += "\nDate: "+self.dia+"/"+self.mes+"/"+self.anno+" "+self.hora+":"+self.minuto
+        str += "\nMatches: "+self.matches
+        return str
 
 def main():
     #reseteamos el fichero de estadisticas
@@ -25,21 +45,33 @@ def main():
                     process(path, fil)
     except:
         pass
+    #vamos parseano y guardando status
     f = open("./TimeTravel.log", "r")
     dict = {'foo' : 1,}
     for linea in f:
         encuentra = encuentraStatus(linea)
         if encuentra != -1:
-            anno, mes, dia, hora, minuto = parseaFecha(linea)
-            seccion, status, timetravel = parseaTimeTravel(linea)
-            guardaSeccion(dia,mes,anno,hora,minuto,seccion,status,timetravel)
-            dict[seccion] = 1
-            
+            s = Seccion()
+            s.anno, s.mes, s.dia, s.hora, s.minuto = parseaFecha(linea)
+            s.name, s.status, s.timeTravel = parseaTimeTravel(linea)
+            dict[s.name] = s
+    f.close()       
     del dict['foo']
-    
+
+    #estudiamos los matches
+    f = open("./TimeTravel.log", "r")
+    for linea in f:
+        matchSection = encuentraMatches(linea)
+        if matchSection != -1:
+            dict[matchSection[0]].matches = matchSection[1]
+            print  dict[matchSection[0]]
+    f.close()
+        
     workbook = xlsxwriter.Workbook('stats.xlsx')
     
-    for sec in dict.keys():
+    #guardamos las secciones de forma temporal en csv (se podria omitir y trabajar in memory)
+    for sec in dict.values():
+        guardaSeccion(sec)
         csvToexcel(sec, workbook)
         
     workbook.close()
@@ -56,6 +88,16 @@ def main():
     except:
         pass
 
+def encuentraMatches(linea):
+    line = linea.split('|')[1]
+    try:
+        if line.split()[0] == "Matching":
+            seccion = ((line.split("for")[1]).split("are")[0]).split()[0]
+            return [seccion,line.split(':')[1]]
+        else:
+            return -1
+    except:
+        return -1
 
 def process(the_path, the_file):
     processed = 0
@@ -66,13 +108,13 @@ def process(the_path, the_file):
     return processed
 
 def csvToexcel(seccion, workbook):
-    f = open('./'+seccion+'.csv', "rU")
+    f = open('./'+seccion.name+'.csv', "rU")
 
     csv.register_dialect('blank', delimiter=' ')
 
     reader = csv.reader(f, dialect='blank')
     
-    worksheet = workbook.add_worksheet(seccion)
+    worksheet = workbook.add_worksheet(seccion.name)
 
     marca_default = False
     max_row = 0
@@ -102,8 +144,8 @@ def csvToexcel(seccion, workbook):
     chart.set_x_axis({'num_font':  {'rotation': 45}})
 
     # Add a series to the chart.
-    chart.add_series({'categories' :'='+str(seccion)+'!$B$1:$B$'+str(max_row),
-                      'values': '='+str(seccion)+'!$E$1:$E$'+str(max_row),
+    chart.add_series({'categories' :'='+str(seccion.name)+'!$B$1:$B$'+str(max_row),
+                      'values': '='+str(seccion.name)+'!$E$1:$E$'+str(max_row),
                       'marker': {
                       'type': 'automatic',
                       'size': 6,
@@ -114,8 +156,8 @@ def csvToexcel(seccion, workbook):
     
     chart2 = workbook.add_chart({'type': 'scatter'})
     
-    chart2.add_series({'categories' :'='+str(seccion)+'!$B$1:$B$'+str(max_row),
-                      'values': '='+str(seccion)+'!$Y$1:$Y$'+str(max_row),
+    chart2.add_series({'categories' :'='+str(seccion.name)+'!$B$1:$B$'+str(max_row),
+                      'values': '='+str(seccion.name)+'!$Y$1:$Y$'+str(max_row),
                       'marker': {
                       'fill':   {'color': 'red'},
                       'type': 'diamond',
@@ -127,12 +169,10 @@ def csvToexcel(seccion, workbook):
         
     # Insert the chart into the worksheet.
     worksheet.insert_chart('C1', chart)
-    #worksheet.insert_chart('C2', chart2)
 
-
-def guardaSeccion(dia,mes,anno,hora,minuto,seccion,status,timetravel):
-    f = open(seccion+".csv",'a')
-    f.write(dia+"/" +mes+"/" +anno+ " " +hora+ ":"+ minuto+" "+seccion+" "+status+" "+ timetravel+"\n")
+def guardaSeccion(s):
+    f = open(s.name+".csv",'a')
+    f.write(s.dia+"/" +s.mes+"/" +s.anno+ " " +s.hora+ ":"+ s.minuto+" "+s.name+" "+s.status+" "+s.timeTravel+" "+s.matches+"\n")
     f.close()        
 
 def parseaTimeTravel(linea):
