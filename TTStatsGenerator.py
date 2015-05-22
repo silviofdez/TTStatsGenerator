@@ -3,29 +3,42 @@ Created on 18/05/2015
 
 @author: Silvio
 '''
-import csv
 import os
 import xlsxwriter
 
 class Seccion():
     
     def __init__(self):
-        self.name = ''
-        self.status = ''
-        self.timeTravel = ''
-        self.dia = ''
-        self.mes = ''
-        self.anno = ''
-        self.hora = ''
-        self.minuto = ''
-        self.matches = ''
+        self.name = None
+        self.status = None
+        self.timeTravel = None
+        self.dia = None
+        self.mes = None
+        self.anno = None
+        self.hora = None
+        self.minuto = None
+        self.matches = None
+        self.worksheet = None
+        self.max_row = 0
 
     def __repr__(self):
-        str = "Name: "+self.name
-        str += "\nStatus: "+self.status
-        str += "\nTimeTravel: "+self.timeTravel
+        if self.name == None:
+            str = "Name: "+"None"
+        else:
+            str = "Name: "+self.name
+        if self.status == None:
+            str += "\nStatus: "+"None"
+        else:
+            str += "\nStatus: "+self.status
+        if self.timeTravel == None:
+            str += "\nTimeTravel: "+"None"
+        else:
+            str += "\nTimeTravel: "+self.timeTravel
         str += "\nDate: "+self.dia+"/"+self.mes+"/"+self.anno+" "+self.hora+":"+self.minuto
-        str += "\nMatches: "+self.matches
+        if self.matches == None:
+            str += "\nMatches: "+"None"
+        else:
+            str += "\nMatches: "+self.matches
         return str
 
 def main():
@@ -34,17 +47,7 @@ def main():
         os.remove("./stats.xlsx")
     except:
         pass
-    try:
-        for path, directories, files in os.walk("./"):
-            for fil in files:
-                # ignore files without extension (can have the same name as the ext)
-                file_ext = fil.split('.')[-1] if len(fil.split('.')) > 1 else None
-                # ignore dots in given extensions
-                extensions = [ext.replace('.', '') for ext in ["csv",]]
-                if file_ext in extensions:
-                    process(path, fil)
-    except:
-        pass
+    
     #vamos parseano y guardando status
     f = open("./TimeTravel.log", "r")
     dict = {'foo' : 1,}
@@ -54,50 +57,61 @@ def main():
             s = Seccion()
             s.anno, s.mes, s.dia, s.hora, s.minuto = parseaFecha(linea)
             s.name, s.status, s.timeTravel = parseaTimeTravel(linea)
-            dict[s.name] = s
-    f.close()       
-    del dict['foo']
-
-    #estudiamos los matches
-    f = open("./TimeTravel.log", "r")
-    for linea in f:
+            #print s.name, s.anno, s.mes, s.dia, s.hora, s.minuto
+            if dict.has_key(s.name+s.anno+s.mes+s.dia+s.hora+s.minuto)==False:
+                dict[s.name+s.anno+s.mes+s.dia+s.hora+s.minuto] = s
+            dict[s.name+s.anno+s.mes+s.dia+s.hora+s.minuto].anno = s.anno
+            dict[s.name+s.anno+s.mes+s.dia+s.hora+s.minuto].mes = s.mes
+            dict[s.name+s.anno+s.mes+s.dia+s.hora+s.minuto].dia = s.dia
+            dict[s.name+s.anno+s.mes+s.dia+s.hora+s.minuto].hora = s.hora
+            dict[s.name+s.anno+s.mes+s.dia+s.hora+s.minuto].minuto = s.minuto
+            dict[s.name+s.anno+s.mes+s.dia+s.hora+s.minuto].name = s.name
+            dict[s.name+s.anno+s.mes+s.dia+s.hora+s.minuto].status= s.status
+            dict[s.name+s.anno+s.mes+s.dia+s.hora+s.minuto].timeTravel = s.timeTravel
         matchSection = encuentraMatches(linea)
         if matchSection != -1:
-            dict[matchSection[0]].matches = matchSection[1]
-            print  dict[matchSection[0]]
-    f.close()
+            s = Seccion()
+            s.anno, s.mes, s.dia, s.hora, s.minuto = parseaFecha(linea)
+            s.name = matchSection[0]
+            s.matches = matchSection[1]
+            dict[s.name+s.anno+s.mes+s.dia+s.hora+s.minuto] = s
+    f.close()       
+    del dict['foo']
         
     workbook = xlsxwriter.Workbook('stats.xlsx')
     
+    count = 1
     #guardamos las secciones de forma temporal en csv (se podria omitir y trabajar in memory)
     for sec in dict.values():
-        guardaSeccion(sec)
-        csvToexcel(sec, workbook)
+        #si no existe matches es porque al principio del fichero esta incompleto quitamos
+        if sec.matches == None:
+            del dict[sec.name+sec.anno+sec.mes+sec.dia+sec.hora+sec.minuto]
+        else:
+            print "Bucle dict.values() seccion: ",sec.name," ",count," de ",len(dict)
+            count = count +1
+            if sec.anno != None:
+                csvToexcel(sec, workbook, dict)
+
+    #creamos graficos
+    for sec in dict.values():
+        if sec.max_row != 0:
+            createGraph(sec, workbook, dict)
         
+    print "Saving excel file"
     workbook.close()
-    #volvemos a borrar los csv
-    try:
-        for path, directories, files in os.walk("./"):
-            for fil in files:
-                # ignore files without extension (can have the same name as the ext)
-                file_ext = fil.split('.')[-1] if len(fil.split('.')) > 1 else None
-                # ignore dots in given extensions
-                extensions = [ext.replace('.', '') for ext in ["csv",]]
-                if file_ext in extensions:
-                    process(path, fil)
-    except:
-        pass
 
 def encuentraMatches(linea):
     line = linea.split('|')[1]
     try:
         if line.split()[0] == "Matching":
+            #buscamos que sea la misma seccion
             seccion = ((line.split("for")[1]).split("are")[0]).split()[0]
             return [seccion,line.split(':')[1]]
         else:
             return -1
     except:
         return -1
+    return -1
 
 def process(the_path, the_file):
     processed = 0
@@ -107,35 +121,9 @@ def process(the_path, the_file):
     processed = 1
     return processed
 
-def csvToexcel(seccion, workbook):
-    f = open('./'+seccion.name+'.csv', "rU")
-
-    csv.register_dialect('blank', delimiter=' ')
-
-    reader = csv.reader(f, dialect='blank')
-    
-    worksheet = workbook.add_worksheet(seccion.name)
-
-    marca_default = False
-    max_row = 0
-    for row_index, row in enumerate(reader):
-        max_row = max_row +1
-        for col_index, col in enumerate(row):
-            if(col_index == 4):
-                worksheet.write_number(row_index, col_index, int(col))
-                if marca_default ==True:
-                    worksheet.write_number(row_index, col_index+20, int(col))
-                else:
-                    worksheet.write(row_index, col_index+20, '')
-            else:
-                 worksheet.write(row_index, col_index, col)
-                 if(col_index==3):
-                    if col=="default":
-                        marca_default = True
-                    else:
-                        marca_default = False
-
-
+def createGraph(seccion, workbook, dict):
+    worksheet = dict[seccion.name].worksheet
+    max_row = seccion.max_row
     # Create a new chart object.
     chart = workbook.add_chart({'type': 'line'})
     chart.set_title({'name': 'Time Travel (secs)'})
@@ -170,10 +158,37 @@ def csvToexcel(seccion, workbook):
     # Insert the chart into the worksheet.
     worksheet.insert_chart('C1', chart)
 
-def guardaSeccion(s):
-    f = open(s.name+".csv",'a')
-    f.write(s.dia+"/" +s.mes+"/" +s.anno+ " " +s.hora+ ":"+ s.minuto+" "+s.name+" "+s.status+" "+s.timeTravel+" "+s.matches+"\n")
-    f.close()        
+
+def csvToexcel(seccion, workbook, dict):
+
+    #si no existe, creamos
+    if dict.has_key(seccion.name) == False:
+        worksheet = workbook.add_worksheet(seccion.name)
+        #solo guardamos la sheet
+        dict[seccion.name] = Seccion()
+        dict[seccion.name].name = seccion.name
+        dict[seccion.name].worksheet = worksheet
+    else:
+        worksheet = dict[seccion.name].worksheet
+
+    try:
+        max_row = dict[seccion.name].max_row
+        #escribimos fecha
+        worksheet.write(max_row, 0, seccion.dia+"/"+seccion.mes+"/"+seccion.anno)
+        worksheet.write(int(max_row), 1, seccion.hora+":"+seccion.minuto)
+        worksheet.write(int(max_row), 2, seccion.name)
+        worksheet.write(max_row, 3, seccion.status)
+        worksheet.write_number(max_row, 4, int(seccion.timeTravel))
+        worksheet.write_number(max_row, 5, int(seccion.matches))
+        if seccion.status =="default":
+            worksheet.write_number(max_row, 24, int(seccion.timeTravel))
+        else:
+            worksheet.write(max_row, 24, '')
+        #incrementamos el max_row
+        dict[seccion.name].max_row = dict[seccion.name].max_row+1
+    except Exception as e:
+        print "Exception writing cell:  ",e
+      
 
 def parseaTimeTravel(linea):
     seccion =  ((linea.split('|')[1]).split(':')[0])[1:8]
