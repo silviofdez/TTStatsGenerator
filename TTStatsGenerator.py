@@ -5,6 +5,7 @@ Created on 18/05/2015
 '''
 import os
 import xlsxwriter
+import collections
 
 class Seccion():
     
@@ -50,7 +51,7 @@ def main():
     
     #vamos parseano y guardando status
     f = open("./TimeTravel.log", "r")
-    dict = {'foo' : 1,}
+    dict = collections.OrderedDict()
     for linea in f:
         encuentra = encuentraStatus(linea)
         if encuentra != -1:
@@ -76,7 +77,6 @@ def main():
             s.matches = matchSection[1]
             dict[s.name+s.anno+s.mes+s.dia+s.hora+s.minuto] = s
     f.close()       
-    del dict['foo']
         
     workbook = xlsxwriter.Workbook('stats.xlsx')
     
