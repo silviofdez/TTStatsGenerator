@@ -130,6 +130,7 @@ def createGraph(seccion, workbook, dict):
     chart.set_legend({'none': True})
 
     chart.set_x_axis({'num_font':  {'rotation': 45}})
+    chart.set_size({'width': 560, 'height': 275})
 
     # Add a series to the chart.
     chart.add_series({'categories' :'='+str(seccion.name)+'!$B$1:$B$'+str(max_row),
@@ -154,9 +155,30 @@ def createGraph(seccion, workbook, dict):
                       })
     
     chart.combine(chart2)
+
+    chart3 = workbook.add_chart({'type': 'line'})
+    chart3.set_title({'name': 'Matches (absolute number)'})
+    chart3.set_legend({'none': True})
+
+    chart3.set_x_axis({'num_font':  {'rotation': 45}})
+    chart3.set_size({'width': 560, 'height': 275})
+
+    # Add a series to the chart.
+    chart3.add_series({'categories' :'='+str(seccion.name)+'!$B$1:$B$'+str(max_row),
+                      'values': '='+str(seccion.name)+'!$F$1:$F$'+str(max_row),
+                      'marker': {
+                      'type': 'triangle',
+                      'size': 6,
+                      'border': {'color': 'black'},
+                      'fill':   {'color': 'green'},
+                        },
+                      })
         
     # Insert the chart into the worksheet.
-    worksheet.insert_chart('C1', chart)
+    worksheet.insert_chart('J1', chart)
+    worksheet.insert_chart('J16', chart3)
+
+
 
 
 def csvToexcel(seccion, workbook, dict):
